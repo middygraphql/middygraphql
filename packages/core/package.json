@@ -1,0 +1,26 @@
+{
+  "name": "@middygraphql/core",
+  "version": "0.0.0",
+  "description": "🛵 The simple Graphql framework for Node.js inspired by middyjs (error core)",
+  "author": {
+    "name": "kyuhak yuk",
+    "url": "https://github.com/kyuhakyuk"
+  },
+  "homepage": "https://github.com/kyuhakyuk/middy-graphql",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "index.d.ts",
+  "public": "true",
+  "engines": {
+    "node": ">=12"
+  },
+  "scripts": {
+    "test": "jest",
+    "build": "rimraf -rf ./index.js ./index.d.ts && tsc -d --outDir ./"
+  },
+  "engineStrict": true,
+  "license": "MIT",
+  "dependencies": {
+    "graphql": "^16.2.0"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "@middygraphql/validator",
+  "version": "0.0.0",
+  "description": "🛵 The simple Graphql framework for Node.js inspired by middyjs (validator package)",
+  "author": {
+    "name": "kyuhak yuk",
+    "url": "https://github.com/kyuhakyuk"
+  },
+  "homepage": "https://github.com/kyuhakyuk/middy-graphql",
+  "type": "commonjs",
+  "public": "true",
+  "engines": {
+    "node": ">=12"
+  },
+  "main": "index.js",
+  "types": "index.d.ts",
+  "scripts": {
+    "test": "jest",
+    "build": "rimraf -rf ./index.js ./index.d.ts && tsc -d --outDir ./"
+  },
+  "engineStrict": true,
+  "license": "MIT",
+  "dependencies": {
+    "@middygraphql/core": "*",
+    "@middygraphql/error": "*",
+    "zod": "^3.21.4"
+  }
+}
