@@ -1,7 +1,9 @@
-import { BadRequestError, ConflictError, ForbiddenError, InternalError, NotFoundError, PaymentRequiredError, TooManyRequestsError, ValidationError, } from "../index";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const index_1 = require("../index");
 test('should throw "BadRequestError"', () => {
     try {
-        throw new BadRequestError("BadRequestError");
+        throw new index_1.BadRequestError("BadRequestError");
     }
     catch (error) {
         expect(error.extensions.code).toBe("BAD_REQUEST");
@@ -10,7 +12,7 @@ test('should throw "BadRequestError"', () => {
 });
 test('should throw "ConflictError"', () => {
     try {
-        throw new ConflictError("ConflictError");
+        throw new index_1.ConflictError("ConflictError");
     }
     catch (error) {
         expect(error.extensions.code).toBe("CONFLICT");
@@ -19,7 +21,7 @@ test('should throw "ConflictError"', () => {
 });
 test('should throw "ForbiddenError"', () => {
     try {
-        throw new ForbiddenError("ForbiddenError");
+        throw new index_1.ForbiddenError("ForbiddenError");
     }
     catch (error) {
         expect(error.extensions.code).toBe("FORBIDDEN");
@@ -28,7 +30,7 @@ test('should throw "ForbiddenError"', () => {
 });
 test('should throw "InternalError"', () => {
     try {
-        throw new InternalError("InternalError");
+        throw new index_1.InternalError("InternalError");
     }
     catch (error) {
         expect(error.extensions.code).toBe("INTERNAL_SERVER_ERROR");
@@ -37,7 +39,7 @@ test('should throw "InternalError"', () => {
 });
 test('should throw "NotFoundError"', () => {
     try {
-        throw new NotFoundError("NotFoundError");
+        throw new index_1.NotFoundError("NotFoundError");
     }
     catch (error) {
         expect(error.extensions.code).toBe("NOT_FOUND");
@@ -46,7 +48,7 @@ test('should throw "NotFoundError"', () => {
 });
 test('should throw "PaymentRequiredError"', () => {
     try {
-        throw new PaymentRequiredError("PaymentRequiredError");
+        throw new index_1.PaymentRequiredError("PaymentRequiredError");
     }
     catch (error) {
         expect(error.extensions.code).toBe("PAYMENT_REQUIRED");
@@ -55,7 +57,7 @@ test('should throw "PaymentRequiredError"', () => {
 });
 test('should throw "TooManyRequestsError"', () => {
     try {
-        throw new TooManyRequestsError("TooManyRequestsError");
+        throw new index_1.TooManyRequestsError("TooManyRequestsError");
     }
     catch (error) {
         expect(error.extensions.code).toBe("TOO_MANY_REQUESTS");
@@ -64,7 +66,7 @@ test('should throw "TooManyRequestsError"', () => {
 });
 test('should throw "ValidationError"', () => {
     try {
-        throw new ValidationError("ValidationError", {
+        throw new index_1.ValidationError("ValidationError", {
             extensions: {
                 details: [],
             },
