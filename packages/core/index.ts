@@ -1,33 +1,52 @@
-import { Ctx, MiddlewareFn, MiddlewareObj, Request, Resolver } from "./types";
+import { GraphQLError, GraphQLResolveInfo } from "graphql";
 
-function resolver(resolverHandler: Resolver) {
+const middy = <TRoot = any, TArgs = any, TContext = any>(
+  graphqlResolver: Resolver<TRoot, TArgs, TContext>
+) => {
   const beforeMiddlewares: MiddlewareFn[] = [];
   const afterMiddlewares: MiddlewareFn[] = [];
   const onErrorMiddlewares: MiddlewareFn[] = [];
 
-  function resolver(root: any, args: any, context: any, info: any) {
-    return execute(
-      { root, args, context, info },
-      beforeMiddlewares,
-      resolverHandler,
-      afterMiddlewares,
-      onErrorMiddlewares
+  function middyHandler(root: TRoot, args: TArgs, context: TContext, info: GraphQLResolveInfo) {
+    const request = {
+      root,
+      args,
+      context,
+      info,
+    };
+
+    return runRequest(
+      request,
+      [...beforeMiddlewares],
+      graphqlResolver,
+      [...afterMiddlewares],
+      [...onErrorMiddlewares]
     );
   }
 
-  resolver.use = function (middlewares: MiddlewareObj | MiddlewareObj[]) {
-    if (Array.isArray(middlewares)) {
-      for (const middleware of middlewares) {
-        resolver.applyMiddleware(middleware);
+  const middy = middyHandler as MiddyHandler<TRoot, TArgs, TContext>;
+
+  middy.use = (middlewares) => {
+    if (!Array.isArray(middlewares)) {
+      middlewares = [middlewares];
+    }
+    for (const middleware of middlewares) {
+      const { before, after, onError } = middleware;
+
+      if (!before && !after && !onError) {
+        throw new Error(
+          'Middleware must be an object containing at least one key among "before", "after", "onError"'
+        );
       }
 
-      return resolver;
+      if (before) middy.before(before);
+      if (after) middy.after(after);
+      if (onError) middy.onError(onError);
     }
-
-    return resolver.applyMiddleware(middlewares);
+    return middy;
   };
 
-  resolver.applyMiddleware = function (middleware: MiddlewareObj = {}) {
+  middy.applyMiddleware = function (middleware: MiddlewareObj<TRoot, TArgs, TContext> = {}) {
     const { before, after, onError } = middleware;
 
     if (!before && !after && !onError) {
@@ -36,81 +55,136 @@ function resolver(resolverHandler: Resolver) {
       );
     }
 
-    if (before) resolver.before(before);
-    if (after) resolver.after(after);
-    if (onError) resolver.onError(onError);
+    if (before) middy.before(before);
+    if (after) middy.after(after);
+    if (onError) middy.onError(onError);
 
-    return resolver;
+    return middy;
   };
 
   // Inline Middlewares
-  resolver.before = function (beforeMiddleware: MiddlewareFn) {
+  middy.before = (beforeMiddleware) => {
     beforeMiddlewares.push(beforeMiddleware);
-    return resolver;
+    return middy;
   };
-  resolver.after = function (afterMiddleware: MiddlewareFn) {
+  middy.after = (afterMiddleware) => {
     afterMiddlewares.unshift(afterMiddleware);
-    return resolver;
+    return middy;
   };
-  resolver.onError = function (onErrorMiddleware: MiddlewareFn) {
-    onErrorMiddlewares.push(onErrorMiddleware);
-    return resolver;
-  };
-
-  resolver.__middlewares = {
-    before: beforeMiddlewares,
-    after: afterMiddlewares,
-    onError: onErrorMiddlewares,
+  middy.onError = (onErrorMiddleware) => {
+    onErrorMiddlewares.unshift(onErrorMiddleware);
+    return middy;
   };
 
-  return resolver;
-}
+  return middy;
+};
 
-async function execute(
+const runRequest = async (
   request: Request,
   beforeMiddlewares: MiddlewareFn[],
-  resolverHandler: Resolver,
+  graphqlResolver: Resolver,
   afterMiddlewares: MiddlewareFn[],
   onErrorMiddlewares: MiddlewareFn[]
-) {
+) => {
   try {
     await runMiddlewares(request, beforeMiddlewares);
 
     // Check if before stack hasn't exit early
-    if (request.response === undefined) {
-      request.response = await resolverHandler(request);
+    if (typeof request.response === "undefined") {
+      request.response = await graphqlResolver(request);
 
       await runMiddlewares(request, afterMiddlewares);
     }
-  } catch (e: any) {
-    // Reset response changes made by after stack before error thrown
+  } catch (e) {
     request.response = undefined;
     request.error = e;
 
-    if (onErrorMiddlewares.length === 0) {
-      throw e;
-    }
+    try {
+      await runMiddlewares(request, onErrorMiddlewares);
+    } catch (e) {
+      // Save error that wasn't handled
+      e.originalError = request.error;
+      request.error = e;
 
-    await runMiddlewares(request, onErrorMiddlewares);
+      throw request.error;
+    }
+    // Catch if onError stack hasn't handled the error
+    if (typeof request.response === "undefined") throw request.error;
   }
 
   return request.response;
-}
+};
 
-async function runMiddlewares(request: Request, middlewares: MiddlewareFn[]) {
-  for (const middleware of middlewares) {
-    const res = await middleware?.(request);
+const runMiddlewares = async (request: Request, middlewares: MiddlewareFn[]) => {
+  for await (const nextMiddleware of middlewares) {
+    const res = await nextMiddleware(request);
 
-    if (res !== undefined) {
+    // short circuit chaining and respond early
+    if (typeof res !== "undefined") {
       request.response = res;
-
       return;
     }
   }
-}
-
-export default <Args = any, Context = Ctx>(resolverHandler: Resolver<any, Args, Context>) => {
-  return resolver(resolverHandler);
 };
 
-export * from "./types";
+export default middy;
+
+export type Resolver<TRoot = any, TArgs = any, TContext = any> = (
+  data: ResolverData<TRoot, TArgs, TContext>
+) => any;
+
+export interface ResolverData<TRoot = any, TArgs = any, TContext = any> {
+  root: TRoot;
+  args: TArgs;
+  context: TContext;
+  info: GraphQLResolveInfo;
+}
+
+export type Request<TRoot = any, TArgs = any, TContext = any> = ResolverData<
+  TRoot,
+  TArgs,
+  TContext
+> & {
+  response?: any;
+  error?: GraphQLError;
+};
+
+export type MiddlewareFn<TRoot = any, TArgs = any, TContext = any> = (
+  data: Request<TRoot, TArgs, TContext>
+) => any;
+
+export interface MiddlewareObj<TRoot = any, TArgs = any, TContext = any> {
+  before?: MiddlewareFn<TRoot, TArgs, TContext>;
+  after?: MiddlewareFn<TRoot, TArgs, TContext>;
+  onError?: MiddlewareFn<TRoot, TArgs, TContext>;
+}
+
+export type MiddyInputHandler<TRoot = any, TArgs = any, TContext = any> = (
+  root: TRoot,
+  args: TArgs,
+  context: TContext,
+  info: GraphQLResolveInfo
+) => any;
+
+export type MiddyInputPromiseHandler<TRoot = any, TArgs = any, TContext = any> = (
+  root: TRoot,
+  args: TArgs,
+  context: TContext,
+  info: GraphQLResolveInfo
+) => Promise<any>;
+
+export interface MiddyHandler<TRoot = any, TArgs = any, TContext = any>
+  extends MiddyInputHandler<TRoot, TArgs, TContext>,
+    MiddyInputPromiseHandler<TRoot, TArgs, TContext> {
+  use: (
+    middlewares: MiddlewareObj<TRoot, TArgs, TContext> | MiddlewareObj<TRoot, TArgs, TContext>[]
+  ) => MiddyHandler<TRoot, TArgs, TContext>;
+  before: (
+    middleware: MiddlewareFn<TRoot, TArgs, TContext>
+  ) => MiddyHandler<TRoot, TArgs, TContext>;
+  after: (middleware: MiddlewareFn<TRoot, TArgs, TContext>) => MiddyHandler<TRoot, TArgs, TContext>;
+  onError: (
+    middleware: MiddlewareFn<TRoot, TArgs, TContext>
+  ) => MiddyHandler<TRoot, TArgs, TContext>;
+  applyMiddleware: (middleware: MiddlewareObj) => MiddyHandler<TRoot, TArgs, TContext>;
+}
