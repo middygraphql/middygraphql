@@ -1,4 +1,4 @@
-import m, { Request } from "@middygraphql/core";
+import { Request } from "@middygraphql/core";
 import { ValidationError } from "@middygraphql/error";
 import { z } from "zod";
 
